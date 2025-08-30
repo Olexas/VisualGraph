@@ -1,0 +1,5 @@
+Find 4 cycles:
+Cycle 1: 0 1 3 9 7 8 6 4 5 2 0 Weight: 27
+Cycle 2: 0 1 5 4 6 8 7 9 3 2 0 Weight: 30
+Cycle 3: 0 2 3 9 7 8 6 4 5 1 0 Weight: 30
+Cycle 4: 0 2 5 4 6 8 7 9 3 1 0 Weight: 27

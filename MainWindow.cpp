@@ -1,317 +1,409 @@
-#include "MainWindow.h"
+п»ї#include "MainWindow.h"
 
 MainWindow::MainWindow() {
     resize(1920, 1080);
-    //QWidget::showFullScreen();
+    setupUI();
+}
 
+void MainWindow::setupUI() {
     QWidget* centralWidget = new QWidget(this);
-    QHBoxLayout* main_layout = new QHBoxLayout(centralWidget);
+    QHBoxLayout* mainLayout = new QHBoxLayout(centralWidget);
 
-    this->inputWidget = new QWidget(this);
-    QHBoxLayout* inputLayout = new QHBoxLayout(inputWidget);
+    createInputWidget();
+    initializeTables();
+    initializeLabels();
 
-    this->vertex_input = new QLineEdit(inputWidget);
-    vertex_input->setPlaceholderText(QString::fromUtf8(u8"Введите количество вершин (от 2 до 100)"));
-    vertex_input->setStyleSheet("color: grey;");
-    inputLayout->addWidget(vertex_input);
-
-    QRegularExpression vertexRegex(QStringLiteral("^[0-9]*$"));
-    QRegularExpressionValidator* vertexValidator = new QRegularExpressionValidator(vertexRegex, this);
-    vertex_input->setValidator(vertexValidator);
-
-    this->shimbell_edges_input = new QLineEdit(inputWidget);
-    shimbell_edges_input->setStyleSheet("color: grey;");
-    shimbell_edges_input->setVisible(false);
-    inputLayout->addWidget(shimbell_edges_input);
-
-    shimbell_edges_input->setValidator(vertexValidator);
-
-    this->warshall_first_input = new QLineEdit(inputWidget);
-    this->warshall_second_input = new QLineEdit(inputWidget);
-    warshall_first_input->setPlaceholderText(QString::fromUtf8(u8"Введите номер первой вершины"));
-    warshall_second_input->setPlaceholderText(QString::fromUtf8(u8"Введите номер второй вершины"));
-    warshall_first_input->setStyleSheet("color: grey;");
-    warshall_second_input->setStyleSheet("color: grey;");
-    warshall_first_input->setVisible(false);
-    warshall_second_input->setVisible(false);
-    inputLayout->addWidget(warshall_first_input);
-    inputLayout->addWidget(warshall_second_input);
-
-    warshall_first_input->setValidator(vertexValidator);
-    warshall_second_input->setValidator(vertexValidator);
-
-    this->generate_button = new QPushButton(QString::fromUtf8(u8"Сгенерировать"), inputWidget);
-    inputLayout->addWidget(generate_button);
-    connect(generate_button, &QPushButton::clicked, this, &MainWindow::generateGraph);
-
-    this->calculate_button = new QPushButton(QString::fromUtf8(u8"Рассчитать"), inputWidget);
-    calculate_button->setVisible(false);
-    inputLayout->addWidget(calculate_button);
-    connect(calculate_button, &QPushButton::clicked, this, &MainWindow::calculateShimbell);
-
-    this->warshall_calculate_button = new QPushButton(QString::fromUtf8(u8"Рассчитать"), inputWidget);
-    warshall_calculate_button->setVisible(false);
-    inputLayout->addWidget(warshall_calculate_button);
-
-    this->graph = new Graph(10);
-
-    shimbell_edges_input->setPlaceholderText(QString::fromUtf8(u8"Введите количество рёбер (от 1 до ") + QString::number(this->graph->getVertexesCount()) + ")");
-
-    this->table_widget = new QTabWidget(this);
-    connect(table_widget, &QTabWidget::currentChanged, this, &MainWindow::onTabChanged);
-
-    this->adjacency_table = new TableWidget(this->graph->getAdjacencyMatrix(), this);
-    this->weight_table = new TableWidget(this->graph->getWeightMatrix(), this);
-
-    QWidget* shimbellTab = new QWidget(this);
-    QVBoxLayout* shimbellLayout = new QVBoxLayout(shimbellTab);
-
-    this->min_path_table = new TableWidget(QVector<QVector<int>>(this->graph->getVertexesCount(), QVector<int>(this->graph->getVertexesCount())), this, double_tables_k);
-    this->max_path_table = new TableWidget(QVector<QVector<int>>(this->graph->getVertexesCount(), QVector<int>(this->graph->getVertexesCount())), this, double_tables_k);
-
-    QLabel* minPathLabel = new QLabel(QString::fromUtf8(u8"Минмальный путь"), this);
-    QLabel* maxPathLabel = new QLabel(QString::fromUtf8(u8"Максимальный путь"), this);
-
-    shimbellLayout->addWidget(minPathLabel);
-    shimbellLayout->addWidget(min_path_table);
-    shimbellLayout->addWidget(maxPathLabel);
-    shimbellLayout->addWidget(max_path_table);
-
-    QWidget* warshallTab = new QWidget(this);
-    QVBoxLayout* warshallLayout = new QVBoxLayout(warshallTab);
-
-    this->warshall_label = new QLabel(QString::fromUtf8(u8"1) Алгоритм Уоршалла \n Количество маршрутов из вершины ... в вершину ... : "));
-    warshall_label->setStyleSheet("font-size: 12pt;");
-    warshall_label->setAlignment(Qt::AlignHCenter);
-    warshallLayout->addWidget(warshall_label);
-        
-    this->DFS_label = new QLabel(QString::fromUtf8(u8"2) Поиск в глубину \n Количество маршрутов из вершины ... в вершину ... : "));
-    DFS_label->setStyleSheet("font-size: 12pt;");
-    DFS_label->setAlignment(Qt::AlignHCenter);
-    warshallLayout->addWidget(DFS_label);
-    DFS_label->setWordWrap(true);
-
-    this->bellmanford_label = new QLabel(QString::fromUtf8(u8"3) Алгоритм Беллмана-Форда \n Количество маршрутов из вершины ... в вершину ... : "));
-    bellmanford_label->setStyleSheet("font-size: 12pt;");
-    bellmanford_label->setAlignment(Qt::AlignHCenter);
-    warshallLayout->addWidget(bellmanford_label);
-    bellmanford_label->setWordWrap(true);
-
-    this->iterations_label = new QLabel(QString::fromUtf8(u8"Количество итераций алгоритма 2: ... \n Количество итераций алгоритма 3: ..."));
-    iterations_label->setStyleSheet("font-size: 12pt;");
-    iterations_label->setAlignment(Qt::AlignHCenter);
-    warshallLayout->addWidget(iterations_label);
-
-    QWidget* flowTab = new QWidget(this);
-    QVBoxLayout* flowLayout = new QVBoxLayout(flowTab);
-
-    this->flow_label = new QLabel(QString::fromUtf8(u8"Максимальный поток по алгоритму Форда-Фалкерсона : ..."), this);
-    flow_label->setStyleSheet("font-size: 11pt;");
-    flow_label->setAlignment(Qt::AlignHCenter);
-    flowLayout->addWidget(flow_label);
-
-    this->min_cost_flow_label = new QLabel(QString::fromUtf8(u8"Минимальная стоимость потока ... : ..."), this);
-    min_cost_flow_label->setStyleSheet("font-size: 11pt;");
-    min_cost_flow_label->setAlignment(Qt::AlignHCenter);
-    flowLayout->addWidget(min_cost_flow_label);
-
-    QLabel* capacityLabel = new QLabel(QString::fromUtf8(u8"Матрица пропускных способностей"), this);
-    QLabel* costLabel = new QLabel(QString::fromUtf8(u8"Матрица стоимостей"), this);
-
-    this->capacity_table = new TableWidget(this->graph->getCapacityMatrix(), this, double_tables_k, QColor(255, 255, 200));
-    this->cost_table = new TableWidget(this->graph->getCostMatrix(), this, double_tables_k, QColor(144, 238, 144));
-
-    flowLayout->addWidget(capacityLabel);
-    flowLayout->addWidget(capacity_table);
-    flowLayout->addWidget(costLabel);
-    flowLayout->addWidget(cost_table);
-
-    connect(warshall_calculate_button, &QPushButton::clicked, this, [this]() {
-        if (table_widget->currentIndex() == 3) {
-            calculateWarshall();
-        }
-        else if (table_widget->currentIndex() == 4) {
-            calculateFlow();
-        }
-        });
-  
-    table_widget->addTab(adjacency_table, QString::fromUtf8(u8"Матрица смежности"));
-    table_widget->addTab(weight_table, QString::fromUtf8(u8"Весовая матрица"));
-    table_widget->addTab(shimbellTab, QString::fromUtf8(u8"Метод Шимбелла"));
-    table_widget->addTab(warshallTab, QString::fromUtf8(u8"Маршрут"));
-    table_widget->addTab(flowTab, QString::fromUtf8(u8"Поток"));
-
-    adjacency_table->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
-
-    this->graph_layout = new QVBoxLayout();
+    graph_layout = new QVBoxLayout();
     graph_layout->addWidget(inputWidget);
     graph_layout->addWidget(graph);
 
-    main_layout->addLayout(graph_layout);
-    main_layout->addWidget(table_widget);
+    tab_widget = new QTabWidget(this);
+    setupTabWidget();
+
+    updateDynamicLabels();
+
+    mainLayout->addLayout(graph_layout);
+    mainLayout->addWidget(tab_widget);
 
     setCentralWidget(centralWidget);
+    setupConnections();
 }
 
-void MainWindow::generateGraph() {
-    QString vertex_input_ = this->vertex_input->text();
-    if (vertex_input_.isEmpty() || vertex_input_.toInt() < 2 || vertex_input_.toInt() > 100) return;
+void MainWindow::createInputWidget() {
+    inputWidget = new QWidget(this);
+    QHBoxLayout* inputLayout = new QHBoxLayout(inputWidget);
 
-    delete this->graph;
-    this->graph = new Graph(vertex_input_.toInt());
-    this->graph_layout->addWidget(graph);
+    auto createInputField = [&](QLineEdit*& field, const QString& placeholder, bool visible = true) {
+        field = new QLineEdit(inputWidget);
+        field->setPlaceholderText(placeholder);
+        field->setStyleSheet("color: grey;");
+        field->setVisible(visible);
+        inputLayout->addWidget(field);
 
-    this->adjacency_table->RegenarateTable(this->graph->getAdjacencyMatrix(), this);
+        QRegularExpression vertexRegex("^[0-9]*$");
+        QRegularExpressionValidator* validator = new QRegularExpressionValidator(vertexRegex, this);
+        field->setValidator(validator);
+        };
 
-    this->weight_table->RegenarateTable(this->graph->getWeightMatrix(), this);
+    createInputField(vertex_input, u8"Р’РІРµРґРёС‚Рµ РєРѕР»РёС‡РµСЃС‚РІРѕ РІРµСЂС€РёРЅ (РѕС‚ 2 РґРѕ 100)");
+    createInputField(shimbell_edges_input, "", false);
+    createInputField(warshall_first_input, u8"Р’РІРµРґРёС‚Рµ РЅРѕРјРµСЂ РїРµСЂРІРѕР№ РІРµСЂС€РёРЅС‹", false);
+    createInputField(warshall_second_input, u8"Р’РІРµРґРёС‚Рµ РЅРѕРјРµСЂ РІС‚РѕСЂРѕР№ РІРµСЂС€РёРЅС‹", false);
 
-    this->min_path_table->RegenarateTable(QVector<QVector<int>>(this->graph->getVertexesCount(), QVector<int>(this->graph->getVertexesCount())), this, double_tables_k);
-    this->max_path_table->RegenarateTable(QVector<QVector<int>>(this->graph->getVertexesCount(), QVector<int>(this->graph->getVertexesCount())), this, double_tables_k);
+    auto createButton = [&](QPushButton*& button, const QString& text, bool visible = true) {
+        button = new QPushButton(text, inputWidget);
+        button->setVisible(visible);
+        inputLayout->addWidget(button);
+        };
 
-    shimbell_edges_input->setPlaceholderText(QString::fromUtf8(u8"Введите количество ребер (от 1 до ") + QString::number(this->graph->getVertexesCount()) + ")");
+    createButton(generate_button, u8"РЎРіРµРЅРµСЂРёСЂРѕРІР°С‚СЊ");
+    createButton(calculate_button, u8"Р Р°СЃСЃС‡РёС‚Р°С‚СЊ", false);
+    createButton(warshall_calculate_button, u8"Р Р°СЃСЃС‡РёС‚Р°С‚СЊ", false);
+}
 
-    this->warshall_label->setText(QString::fromUtf8(u8"1) Алгоритм Уоршалла \n Количество маршрутов из вершины ... в вершину ... : "));
-    this->DFS_label->setText(QString::fromUtf8(u8"2) Поиск в глубину \n Количество маршрутов из вершины ... в вершину ... : "));
-    this->bellmanford_label->setText(QString::fromUtf8(u8"3) Алгоритм Беллмана-Форда \n Количество маршрутов из вершины ... в вершину ... : "));
-    this->iterations_label->setText(QString::fromUtf8(u8"Количество итераций алгоритма 2: ... \n Количество итераций алгоритма 3: ..."));
+void MainWindow::initializeTables() {
+    graph = new Graph(10);
+    int vertexes_count = graph->getVertexesCount();
 
-    capacity_table->RegenarateTable(this->graph->getCapacityMatrix(), this, double_tables_k);
-    cost_table->RegenarateTable(this->graph->getCostMatrix(), this, double_tables_k);
+    tables = {
+        {"adjacency",
+            {new TableWidget(graph->getAdjacencyMatrix(), this, double_tables_k),
+             new QLabel(u8"РњР°С‚СЂРёС†Р° СЃРјРµР¶РЅРѕСЃС‚Рё", this),
+             &Graph::getAdjacencyMatrix}},
 
-    this->flow_label->setText(QString::fromUtf8(u8"Максимальный поток по алгоритму Форда-Фалкерсона : ..."));
-    this->min_cost_flow_label->setText(QString::fromUtf8(u8"Минимальная стоимость потока ... : ..."));
-}   
+        {"weight",
+            {new TableWidget(graph->getWeightMatrix(), this, double_tables_k),
+             new QLabel(u8"Р’РµСЃРѕРІР°СЏ РјР°С‚СЂРёС†Р°", this),
+             &Graph::getWeightMatrix}},
 
-void MainWindow::calculateShimbell() {
-    QString shimbell_edges_input_ = this->shimbell_edges_input->text();
-    if (shimbell_edges_input_.isEmpty() || shimbell_edges_input_.toInt() < 1 || shimbell_edges_input_.toInt() > this->graph->getVertexesCount()) return;
+        {"min_path",
+            {new TableWidget(graph->getEmptyMatrix(), this, double_tables_k),
+             new QLabel(u8"РњРёРЅРёРјР°Р»СЊРЅС‹Р№ РїСѓС‚СЊ", this),
+             &Graph::getEmptyMatrix}},
 
-    int edges_count = shimbell_edges_input_.toInt();
+        {"max_path",
+            {new TableWidget(graph->getEmptyMatrix(), this, double_tables_k),
+             new QLabel(u8"РњР°РєСЃРёРјР°Р»СЊРЅС‹Р№ РїСѓС‚СЊ", this),
+             &Graph::getEmptyMatrix}},
 
-    QVector<QVector<int>>* min_matrix = this->graph->getMinWayByShimbell(edges_count);
-    this->min_path_table->RegenarateTable(*min_matrix, this, double_tables_k);
-    delete min_matrix;
+        {"flow",
+            {new TableWidget(graph->getEmptyMatrix(), this, double_tables_k, QColor(255, 255, 200)),
+             new QLabel(u8"РњР°С‚СЂРёС†Р° СЂР°СЃРїСЂРµРґРµР»РµРЅРёСЏ РїРѕС‚РѕРєР°", this),
+             &Graph::getEmptyMatrix}},
 
-    QVector<QVector<int>>* max_matrix = this->graph->getMaxWayByShimbell(edges_count);
-    this->max_path_table->RegenarateTable(*max_matrix, this, double_tables_k);
-    delete max_matrix;
+        {"cost",
+            {new TableWidget(graph->getCostMatrix(), this, double_tables_k, QColor(144, 238, 144)),
+             new QLabel(u8"РњР°С‚СЂРёС†Р° СЃС‚РѕРёРјРѕСЃС‚РµР№", this),
+             &Graph::getCostMatrix}},
+
+        {"kirchhoff",
+            {new TableWidget(graph->getKirchhoffMatrix(), this, double_tables_k, QColor(200, 200, 255)),
+             new QLabel(u8"РњР°С‚СЂРёС†Р° РљРёСЂС…РіРѕС„Р°", this),
+             &Graph::getKirchhoffMatrix}}
+    };
+
+    for (auto& table : tables) {
+        table.widget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    }
+}
+
+void MainWindow::initializeLabels() {
+    labels = {
+        {"warshall", new QLabel(u8"1) РђР»РіРѕСЂРёС‚Рј РЈРѕСЂС€Р°Р»Р»Р° \n РљРѕР»РёС‡РµСЃС‚РІРѕ РјР°СЂС€СЂСѓС‚РѕРІ РёР· РІРµСЂС€РёРЅС‹ ... РІ РІРµСЂС€РёРЅСѓ ... : ", this)},
+        {"dfs", new QLabel(u8"2) РћР±С…РѕРґ РіСЂР°С„Р° РїРѕ СЂРµР±СЂР°Рј РІ РіР»СѓР±РёРЅСѓ РёР· РІРµСЂС€РёРЅС‹ ... : ", this)},
+        {"bellman_ford", new QLabel(u8"3) РђР»РіРѕСЂРёС‚Рј Р‘РµР»Р»РјР°РЅР°-Р¤РѕСЂРґР° \n РљСЂР°С‚С‡Р°Р№С€РµРµ СЂР°СЃСЃС‚РѕСЏРЅРёРµ РёР· РІРµСЂС€РёРЅС‹ ... РІ РІРµСЂС€РёРЅСѓ ... : ", this)},
+        {"iterations", new QLabel(u8"РљРѕР»РёС‡РµСЃС‚РІРѕ РёС‚РµСЂР°С†РёР№ Р°Р»РіРѕСЂРёС‚РјР° 2: ...\nРљРѕР»РёС‡РµСЃС‚РІРѕ РёС‚РµСЂР°С†РёР№ Р°Р»РіРѕСЂРёС‚РјР° 3: ...", this)},
+        {"spanning_tree_count", new QLabel(this)},
+        {"min_spanning_tree", new QLabel(this)},
+        {"colors", new QLabel(this)},
+        {"prufer_code", new QLabel(this)},
+        {"flow", new QLabel(u8"РњР°РєСЃРёРјР°Р»СЊРЅС‹Р№ РїРѕС‚РѕРє РїРѕ Р°Р»РіРѕСЂРёС‚РјСѓ Р¤РѕСЂРґР°-Р¤Р°Р»РєРµСЂСЃРѕРЅР° : ...", this)},
+        {"min_cost_flow", new QLabel(u8"РњРёРЅРёРјР°Р»СЊРЅР°СЏ СЃС‚РѕРёРјРѕСЃС‚СЊ РІРµР»РёС‡РёРЅС‹ РїРѕС‚РѕРєР° ... : ...", this)},
+        {"eulerian_info", new QLabel(this)}
+    };
+
+    for (auto& label : labels) {
+        label->setStyleSheet("font-size: 12pt;");
+        label->setAlignment(Qt::AlignHCenter);
+        label->setWordWrap(true);
+    }
+}
+
+void MainWindow::updateDynamicLabels() {
+    labels["spanning_tree_count"]->setText(u8"1) Р§РёСЃР»Рѕ РѕСЃС‚РѕРІРЅС‹С… РґРµСЂРµРІСЊРµРІ РіСЂР°С„Р° : " +
+        QString::number(graph->getSpanningTreesCount()));
+
+    labels["min_spanning_tree"]->setText(u8"2) РњРёРЅРёРјР°Р»СЊРЅС‹Р№ РїРѕ РІРµСЃСѓ РѕСЃС‚РѕРІ : " +
+        QString::number(graph->getMSTWeight()));
+
+    labels["colors"]->setText(u8"3) РњРёРЅРёРјР°Р»СЊРЅРѕРµ РєРѕР»РёС‡РµСЃС‚РІРѕ С†РІРµС‚РѕРІ : " +
+        QString::number(graph->getColorsCount()));
+
+    labels["prufer_code"]->setText(updatePruferInfo());
+
+    QString eulerian_text = this->graph->getVertexesCount() == 2 ? u8"Р­Р№Р»РµСЂРѕРІ С†РёРєР» РЅРµРІРѕР·РјРѕР¶РµРЅ!\n" : this->graph->isEulerian() ? u8"1) Р“СЂР°С„ СѓР¶Рµ СЏРІР»СЏРµС‚СЃСЏ СЌР№Р»РµСЂРѕРІС‹Рј\n" : u8"1) Р“СЂР°С„ РЅРµ СЏРІР»СЏРµС‚СЃСЏ СЌР№Р»РµСЂРѕРІС‹Рј\n";
+    eulerian_text += this->graph->getVertexesCount() == 2 ? u8"Р“Р°РјРёР»СЊС‚РѕРЅРѕРІ С†РёРєР» РЅРµРІРѕР·РјРѕР¶РµРЅ!" : this->graph->isHamiltonian() ? u8"2) Р“СЂР°С„ СѓР¶Рµ СЏРІР»СЏРµС‚СЃСЏ РіР°РјРёР»СЊС‚РѕРЅРѕРІС‹Рј" : u8"2) Р“СЂР°С„ РЅРµ СЏРІР»СЏРµС‚СЃСЏ РіР°РјРёР»СЊС‚РѕРЅРѕРІС‹Рј";
+    labels["eulerian_info"]->setText(eulerian_text);
+}
+
+QString MainWindow::updatePruferInfo() {
+    auto [pruferCode, weights] = graph->encodePrufer();
+    auto decodedEdges = graph->decodePrufer(pruferCode, weights);
+
+    QString pruferInfo;
+    pruferInfo += u8"РљРѕРґ РџСЂСЋС„РµСЂР° РґР°РЅРЅРѕРіРѕ РѕСЃС‚РѕРІР°: (" + joinQVector(pruferCode) + ")\n";
+    pruferInfo += u8"РљРѕРґ РџСЂСЋС„РµСЂР° РІРµСЃРѕРІ РґР°РЅРЅРѕРіРѕ РѕСЃС‚РѕРІР°: (" + joinQVector(weights) + ")\n";
+    pruferInfo += u8"Р”РµРєРѕРґРёСЂРѕРІР°РЅРёРµ: " + formatDecodedEdges(decodedEdges);
+
+    return pruferInfo;
+}
+
+QString MainWindow::joinQVector(const QVector<int>& vec) const {
+    QStringList elements;
+    for (int value : vec) {
+        elements << QString::number(value);
+    }
+    return elements.join(", ");
+}
+
+QString MainWindow::formatDecodedEdges(const QVector<QPair<QPair<int, int>, int>>& edges) const {
+    QStringList edgeStrings;
+    for (const auto& [vertices, weight] : edges) {
+        edgeStrings << QString("(%1, %2): %3").arg(vertices.first)
+            .arg(vertices.second)
+            .arg(weight);
+    }
+    return edgeStrings.join(", ");
+}
+
+void MainWindow::createMatricesTab(QWidget* tab) {
+    QVBoxLayout* layout = new QVBoxLayout(tab);
+
+    layout->addWidget(tables["adjacency"].label);
+    layout->addWidget(tables["adjacency"].widget);
+
+    layout->addWidget(tables["weight"].label);
+    layout->addWidget(tables["weight"].widget);
+}
+
+void MainWindow::createShimbellTab(QWidget* tab) {
+    QVBoxLayout* layout = new QVBoxLayout(tab);
+
+    layout->addWidget(tables["min_path"].label);
+    layout->addWidget(tables["min_path"].widget);
+
+    layout->addWidget(tables["max_path"].label);
+    layout->addWidget(tables["max_path"].widget);
+}
+
+void MainWindow::createWarshallTab(QWidget* tab) {
+    QVBoxLayout* layout = new QVBoxLayout(tab);
+
+    layout->addWidget(labels["warshall"]);
+    layout->addWidget(labels["dfs"]);
+    layout->addWidget(labels["bellman_ford"]);
+    layout->addWidget(labels["iterations"]);
+}
+
+void MainWindow::createFlowTab(QWidget* tab) {
+    QVBoxLayout* layout = new QVBoxLayout(tab);
+
+    layout->addWidget(labels["flow"]);
+    layout->addWidget(labels["min_cost_flow"]);
+
+    layout->addWidget(tables["flow"].label);
+    layout->addWidget(tables["flow"].widget);
+
+    layout->addWidget(tables["cost"].label);
+    layout->addWidget(tables["cost"].widget);
+}
+
+void MainWindow::createSpanningTreeTab(QWidget* tab) {
+    QVBoxLayout* layout = new QVBoxLayout(tab);
+
+    layout->addWidget(labels["spanning_tree_count"]);
+    layout->addWidget(tables["kirchhoff"].label);
+    layout->addWidget(tables["kirchhoff"].widget);
+
+    layout->addSpacing(116);
+    layout->addWidget(labels["min_spanning_tree"]);
+    layout->addWidget(labels["prufer_code"]);
+    layout->addSpacing(116);
+    layout->addWidget(labels["colors"]);
+    layout->addSpacing(116);
+}
+
+void MainWindow::createEulerianTab(QWidget* tab) {
+    QVBoxLayout* layout = new QVBoxLayout(tab);
+
+    layout->addWidget(labels["eulerian_info"]);
+
+    QPushButton* find_euler_cycle_button = new QPushButton(u8"РќР°Р№С‚Рё Р­Р№Р»РµСЂРѕРІ С†РёРєР»", this);
+    layout->addWidget(find_euler_cycle_button);
+    connect(find_euler_cycle_button, &QPushButton::clicked, this, &MainWindow::findEulerianCycle);
+
+    QPushButton* find_hamilton_cycle_button = new QPushButton(u8"РќР°Р№С‚Рё Р“Р°РјРёР»СЊС‚РѕРЅРѕРІ С†РёРєР»", this);
+    layout->addWidget(find_hamilton_cycle_button);
+    connect(find_hamilton_cycle_button, &QPushButton::clicked, this, &MainWindow::findHamiltonianCycle);
+}
+
+void MainWindow::setupConnections() {
+    connect(generate_button, &QPushButton::clicked, this, &MainWindow::generateGraph);
+    connect(calculate_button, &QPushButton::clicked, this, &MainWindow::calculateShimbell);
+    connect(warshall_calculate_button, &QPushButton::clicked, this, [this]() {
+        tab_widget->currentIndex() == 2 ? calculateWarshall() : calculateFlow();
+        });
+    connect(tab_widget, &QTabWidget::currentChanged, this, &MainWindow::onTabChanged);
+}
+
+void MainWindow::setupTabWidget() {
+    QWidget* matricesTab = new QWidget(this);
+    createMatricesTab(matricesTab);
+    tab_widget->addTab(matricesTab, u8"РњР°С‚СЂРёС†С‹ РіСЂР°С„Р°");
+
+    QWidget* shimbellTab = new QWidget(this);
+    createShimbellTab(shimbellTab);
+    tab_widget->addTab(shimbellTab, u8"РњРµС‚РѕРґ РЁРёРјР±РµР»Р»Р°");
+
+    QWidget* warshallTab = new QWidget(this);
+    createWarshallTab(warshallTab);
+    tab_widget->addTab(warshallTab, u8"РњР°СЂС€СЂСѓС‚");
+
+    QWidget* flowTab = new QWidget(this);
+    createFlowTab(flowTab);
+    tab_widget->addTab(flowTab, u8"РџРѕС‚РѕРє");
+
+    QWidget* spanningTreeTab = new QWidget(this);
+    createSpanningTreeTab(spanningTreeTab);
+    tab_widget->addTab(spanningTreeTab, u8"РћСЃС‚РѕРІС‹");
+
+    QWidget* eulerianTab = new QWidget(this);
+    createEulerianTab(eulerianTab);
+    tab_widget->addTab(eulerianTab, u8"Р¦РёРєР»С‹");
 }
 
 void MainWindow::onTabChanged(int index) {
-    if (index == 4) {
-        this->graph->setShowFlowInfo(true);
-        this->graph->update();
+    graph->clearHighlight();
+    graph->clearEulerian();
+    graph->clearHamiltonian();
+
+    vertex_input->setVisible(index == 0 || index == 4 || index == 5);
+    generate_button->setVisible(index == 0 || index == 4 || index == 5);
+
+    shimbell_edges_input->setVisible(index == 1);
+    calculate_button->setVisible(index == 1);
+
+    bool showWarshallInputs = index == 2 || index == 3;
+    warshall_first_input->setVisible(showWarshallInputs);
+    warshall_second_input->setVisible(showWarshallInputs);
+    warshall_calculate_button->setVisible(showWarshallInputs);
+
+    graph->setShowFlowInfo(index == 3);
+    graph->setNeorFlag(index == 4 || index == 5);
+    graph->setShowMST(index == 4);
+
+    graph->update();
+    current_tab = index;
+}
+
+void MainWindow::generateGraph() {
+    QString vertexInputText = vertex_input->text();
+    if (vertexInputText.isEmpty() || vertexInputText.toInt() < 2 || vertexInputText.toInt() > 100) return;
+
+    delete graph;
+    graph = new Graph(vertexInputText.toInt());
+    this->graph_layout->addWidget(graph);
+
+    QHash<QString, TableData>::iterator it;
+    for (it = tables.begin(); it != tables.end(); ++it) {
+        if (it.value().getter && it.value().widget) {
+            it.value().widget->RegenerateTable((graph->*(it.value().getter))(), this, double_tables_k);
+        }
     }
 
-    else {
-        this->graph->setShowFlowInfo(false);
-        this->graph->update();
-    }
+    updateDynamicLabels();
+    updateGraphViewSettings();
+}
 
-    if (index == 2) {
-        vertex_input->setVisible(false);
-        shimbell_edges_input->setVisible(true);
-        generate_button->setVisible(false);
-        calculate_button->setVisible(true);
-        warshall_first_input->setVisible(false);
-        warshall_second_input->setVisible(false);
-        warshall_calculate_button->setVisible(false);
-    }
+void MainWindow::updateGraphViewSettings() {
+    graph->setShowFlowInfo(current_tab == 3);
+    graph->setNeorFlag(current_tab == 4 || current_tab == 5);
+    graph->setShowMST(current_tab == 4);
+    graph->update();
+}
 
-    else if (index == 3 || index == 4) {
-        vertex_input->setVisible(false);
-        shimbell_edges_input->setVisible(false);
-        generate_button->setVisible(false);
-        calculate_button->setVisible(false);
-        warshall_first_input->setVisible(true);
-        warshall_second_input->setVisible(true);
-        warshall_calculate_button->setVisible(true);
-    }
 
-    else {
-        vertex_input->setVisible(true);
-        shimbell_edges_input->setVisible(false);
-        generate_button->setVisible(true);
-        calculate_button->setVisible(false);
-        warshall_first_input->setVisible(false);
-        warshall_second_input->setVisible(false);
-        warshall_calculate_button->setVisible(false);
-    }
+void MainWindow::calculateShimbell() {
+    QString edgesText = shimbell_edges_input->text();
+    if (edgesText.isEmpty() || edgesText.toInt() < 1 || edgesText.toInt() > graph->getVertexesCount()) return;
+
+    int edgesCount = edgesText.toInt();
+
+    QVector<QVector<int>>* minMatrix = graph->getMinWayByShimbell(edgesCount);
+    tables["min_path"].widget->RegenerateTable(*minMatrix, this, double_tables_k);
+    delete minMatrix;
+
+    QVector<QVector<int>>* maxMatrix = graph->getMaxWayByShimbell(edgesCount);
+    tables["max_path"].widget->RegenerateTable(*maxMatrix, this, double_tables_k);
+    delete maxMatrix;
 }
 
 void MainWindow::calculateWarshall() {
     QString warshall_first_input = this->warshall_first_input->text();
     QString warshall_second_input = this->warshall_second_input->text();
+
     if (warshall_first_input.isEmpty() || warshall_first_input.toInt() < 0 || warshall_first_input.toInt() > this->graph->getVertexesCount() - 1) return;
     if (warshall_second_input.isEmpty() || warshall_second_input.toInt() < 0 || warshall_second_input.toInt() > this->graph->getVertexesCount() - 1) return;
 
     int first_vertex_id = this->warshall_first_input->text().toInt();
     int second_vertex_id = this->warshall_second_input->text().toInt();
 
-    int path_count;
-    bool firs_second_flag = false;
     if (first_vertex_id == second_vertex_id) {
-        firs_second_flag = true;
-        this->warshall_label->setText(QString::fromUtf8(u8"1) Алгоритм Уоршалла \n Вы уже находитесь в данной вершине!"));
+        labels["warshall"]->setText(
+            u8"1) РђР»РіРѕСЂРёС‚Рј РЈРѕСЂС€Р°Р»Р»Р° \n Р’С‹ СѓР¶Рµ РЅР°С…РѕРґРёС‚РµСЃСЊ РІ РґР°РЅРЅРѕР№ РІРµСЂС€РёРЅРµ!");
     }
+
     else {
-        path_count = this->graph->FindPathCount(first_vertex_id, second_vertex_id);
-
-        this->warshall_label->setText(QString::fromUtf8(u8"1) Алгоритм Уоршалла \n Количество маршрутов из вершины ") +
-            warshall_first_input + QString::fromUtf8(u8" в вершину ") + warshall_second_input + QString::fromUtf8(u8" : ") + QString::number(path_count));
+        int pathCount = graph->FindPathCount(first_vertex_id, second_vertex_id);
+        labels["warshall"]->setText(
+            u8"1) РђР»РіРѕСЂРёС‚Рј РЈРѕСЂС€Р°Р»Р»Р° \n РљРѕР»РёС‡РµСЃС‚РІРѕ РјР°СЂС€СЂСѓС‚РѕРІ РёР· РІРµСЂС€РёРЅС‹ " +
+            warshall_first_input + u8" РІ РІРµСЂС€РёРЅСѓ " + warshall_second_input +
+            u8" : " + QString::number(pathCount));
     }
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     QString way;
-    int iterations2 = this->graph->DFS(way, first_vertex_id);
-    QString final = QString::fromUtf8(u8"2) Обход графа по ребрам в глубину из вершины ") + warshall_first_input + " : " + "\n" + way;
-    this->DFS_label->setText(final);
+    int dfsIterations = graph->DFS(way, first_vertex_id);
+    labels["dfs"]->setText(
+        u8"2) РћР±С…РѕРґ РіСЂР°С„Р° РїРѕ СЂРµР±СЂР°Рј РІ РіР»СѓР±РёРЅСѓ РёР· РІРµСЂС€РёРЅС‹ " + warshall_first_input + " :\n" + way);
 
-    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-    QString final2;  int iterations3 = 0;
+    QVector<QString> distances(this->graph->getVertexesCount());
+    QVector<int> path;
+    int bfIterations = graph->BellmanFord(first_vertex_id, second_vertex_id, distances, path);
 
-    if (firs_second_flag) final2 = final2 = QString::fromUtf8(u8"3) Алгоритм Беллмана-Форда \n Вы уже находитесь в данной вершине!");
-
-    else if (path_count == 0) {
-        final2 = QString::fromUtf8(u8"3) Алгоритм Беллмана-Форда \n Маршрут из вершины ") +
-            warshall_first_input + QString::fromUtf8(u8" в вершину ") + warshall_second_input + QString::fromUtf8(u8" не существует!");
+    QString bfResult;
+    if (bfIterations == -1) {
+        bfResult = u8"3) РђР»РіРѕСЂРёС‚Рј Р‘РµР»Р»РјР°РЅР°-Р¤РѕСЂРґР° \n РќР°Р№РґРµРЅ РѕС‚СЂРёС†Р°С‚РµР»СЊРЅС‹Р№ С†РёРєР»!";
     }
-
     else {
-        QVector<int> distances;
-        QVector<int> path;
-
-        iterations3 = this->graph->BellmanFord(first_vertex_id, second_vertex_id, distances, path);
-        graph->update();
-
-        if (iterations3 == -1) final2 = QString::fromUtf8(u8"3) Алгоритм Беллмана-Форда \n Найден отрицательный цикл! ");
-
-        else {
-            final2 = QString::fromUtf8(u8"3) Алгоритм Беллмана-Форда \n Кратчайшее расстояние из вершины ") +
-                warshall_first_input + QString::fromUtf8(u8" в вершину ") + warshall_second_input + QString::fromUtf8(u8" : ") + QString::number(distances[second_vertex_id]) + "\n";
-
-            final2 += QString::fromUtf8(u8"Кратчайший путь: ");
-            for (int i = 0; i < path.size(); ++i) {
-                final2 += QString::number(path[i]);
-                if (i != path.size() - 1) {
-                    final2 += " -> ";
-                }
-            }
-            final2 += "\n";
-
-            final2 += QString::fromUtf8(u8"Вектор расстояний от вершины ") + warshall_first_input + ": (";
-            for (int i = 0; i < distances.size() - 1; ++i) {
-                final2 += QString::number(distances[i]) + ", ";
-            }
-            final2 += QString::number(distances[distances.size() - 1]) + ")";
+        bfResult = u8"3) РђР»РіРѕСЂРёС‚Рј Р‘РµР»Р»РјР°РЅР°-Р¤РѕСЂРґР° \n РљСЂР°С‚С‡Р°Р№С€РµРµ СЂР°СЃСЃС‚РѕСЏРЅРёРµ РёР· РІРµСЂС€РёРЅС‹ " + warshall_first_input + u8" РІ РІРµСЂС€РёРЅСѓ " + warshall_second_input + " : " +
+            distances[second_vertex_id] + u8"\nРљСЂР°С‚С‡Р°Р№С€РёР№ РїСѓС‚СЊ: ";
+        for (int i = 0; i < path.size(); ++i) {
+            bfResult += QString::number(path[i]);
+            if (i < path.size() - 1) bfResult += " -> ";
         }
+        bfResult += "\n";
+
+        bfResult += QString::fromUtf8(u8"Р’РµРєС‚РѕСЂ СЂР°СЃСЃС‚РѕСЏРЅРёР№ РѕС‚ РІРµСЂС€РёРЅС‹ ") + warshall_first_input + ": (";
+        for (int i = 0; i < distances.size() - 1; ++i) {
+            bfResult += distances[i] + ", ";
+        }
+        bfResult += distances[distances.size() - 1] + ")";
     }
+    labels["bellman_ford"]->setText(bfResult);
+    this->graph->update();
 
-    this->bellmanford_label->setText(final2);
-
-    this->iterations_label->setText(QString::fromUtf8(u8"Количество итераций алгоритма 2: ") +
-        QString::number(iterations2) + QString::fromUtf8(u8"\n Количество итераций алгоритма 3: ") + QString::number(iterations3));
+    labels["iterations"]->setText(QString::fromUtf8(u8"РљРѕР»РёС‡РµСЃС‚РІРѕ РёС‚РµСЂР°С†РёР№ Р°Р»РіРѕСЂРёС‚РјР° 2: ") +
+        QString::number(dfsIterations) + QString::fromUtf8(u8"\n РљРѕР»РёС‡РµСЃС‚РІРѕ РёС‚РµСЂР°С†РёР№ Р°Р»РіРѕСЂРёС‚РјР° 3: ") + QString::number(bfIterations));
 }
 
 void MainWindow::calculateFlow() {
@@ -323,6 +415,13 @@ void MainWindow::calculateFlow() {
     int source = first_input.toInt();
     int sink = second_input.toInt();
 
+    QString base_flow_text = u8"РњР°РєСЃРёРјР°Р»СЊРЅС‹Р№ РїРѕС‚РѕРє РїРѕ Р°Р»РіРѕСЂРёС‚РјСѓ Р¤РѕСЂРґР°-Р¤Р°Р»РєРµСЂСЃРѕРЅР° : ";
+
+    if (source == sink) {
+        labels["flow"]->setText(base_flow_text + u8"РСЃС‚РѕС‡РЅРёРє Рё СЃС‚РѕРє СЃРѕРІРїР°РґР°СЋС‚!");
+        return;
+    }
+
     bool is_wrong_sink_or_source = false;
     for (int i = 0; i < this->graph->getVertexesCount(); i++) {
         if (this->graph->getAdjacencyMatrix()[i][source] || this->graph->getAdjacencyMatrix()[sink][i]) {
@@ -332,44 +431,77 @@ void MainWindow::calculateFlow() {
     }
 
     if (is_wrong_sink_or_source) {
-        flow_label->setText(QString::fromUtf8(u8"Максимальный поток по алгоритму Форда-Фалкерсона : Вершина не является истоком или стоком!"));
+        labels["flow"]->setText(base_flow_text + u8"Р’РµСЂС€РёРЅР° РЅРµ СЏРІР»СЏРµС‚СЃСЏ РёСЃС‚РѕРєРѕРј РёР»Рё СЃС‚РѕРєРѕРј!");
         return;
     }
+    
+    int maxFlow = graph->FordFulkerson(source, sink);
+    labels["flow"]->setText(base_flow_text + QString::number(maxFlow));
 
-    if (source == sink) {
-        flow_label->setText(QString::fromUtf8(u8"Максимальный поток по алгоритму Форда-Фалкерсона : Источник и сток совпадают!"));
-        return;
-    }
+    QVector<QVector<int>> flowMatrix(graph->getVertexesCount(), QVector<int>(graph->getVertexesCount(), 0));
+    auto [flow, cost] = graph->FindMinCostFlow(source, sink, flowMatrix, maxFlow);
 
-    int max_flow = this->graph->FordFulkerson(source, sink);
-    flow_label->setText(QString::fromUtf8(u8"Максимальный поток по алгоритму Форда-Фалкерсона : ") + QString::number(max_flow));
-
-    auto pair = this->graph->FindMinCostFlow(source, sink, max_flow);
-    int flow = pair.first; int cost = pair.second;
-
-    this->min_cost_flow_label->setText(QString::fromUtf8(u8"Минимальная стоимость потока ") + QString::number(flow) + " : " + QString::number(cost));
-
-    this->graph->update();
+    tables["flow"].widget->RegenerateTable(flowMatrix, this, double_tables_k);
+    labels["min_cost_flow"]->setText(u8"РњРёРЅРёРјР°Р»СЊРЅР°СЏ СЃС‚РѕРёРјРѕСЃС‚СЊ РІРµР»РёС‡РёРЅС‹ РїРѕС‚РѕРєР° " + QString::number(flow) + " : " + QString::number(cost));
 }
 
+void MainWindow::findEulerianCycle() {
+    if (this->graph->getVertexesCount() == 2) return;
 
-TableWidget::TableWidget(const QVector<QVector<int>>& matrix, QWidget* parent, double k, const QColor& highlightColor) : QTableWidget(parent) {
+    graph->clearHamiltonian();
+    graph->makeEulerian();
+    auto cycle = graph->findEulerianCycle();
+
+    QString cycleText;
+    for (const auto& edge : cycle) {
+        cycleText += QString("(%1, %2), ").arg(edge.first).arg(edge.second);
+    }
+    labels["eulerian_info"]->setText(u8"Р­Р№Р»РµСЂРѕРІ С†РёРєР»: " + cycleText);
+
+    graph->update();
+}
+
+void MainWindow::findHamiltonianCycle() {
+    if (this->graph->getVertexesCount() == 2) return;
+
+    graph->clearEulerian();
+    
+    if (!graph->isHamiltonian()) graph->makeHamiltonian();
+    auto result = graph->solveTSP("123.txt");
+
+    QString cycleText;
+    int tmp_vertex = -1;
+    for (int i = 0; i < result.second.size(); ++i) {
+        if (tmp_vertex != -1)
+            cycleText += QString("(%1, %2), ").arg(tmp_vertex).arg(result.second[i]);
+        tmp_vertex = result.second[i];
+    }
+
+    labels["eulerian_info"]->setText(
+        u8"РњРёРЅРёРјР°Р»СЊРЅРѕРµ РїСЂРѕР№РґРµРЅРЅРѕРµ СЂР°СЃСЃС‚РѕСЏРЅРёРµ РґР»СЏ Р·Р°РґР°С‡Рё РєРѕРјРјРёРІРѕСЏР¶С‘СЂР°: " +
+        QString::number(result.first) +
+        u8"\nРњРёРЅРёРјР°Р»СЊРЅС‹Р№ С†РёРєР»: " + cycleText);
+    graph->update();
+}
+
+TableWidget::TableWidget(const QVector<QVector<int>>& matrix, QWidget* parent, double k, const QColor& highlightColor) 
+    : QTableWidget(parent) {
+
     this->highlightColor = highlightColor;
-    this->RegenarateTable(matrix, parent, k);
 
+    RegenerateTable(matrix, parent, k);
     setAutoScroll(false);
     horizontalHeader()->setStretchLastSection(false);
     verticalHeader()->setStretchLastSection(false);
     setEditTriggers(QAbstractItemView::NoEditTriggers);
 }
 
-void TableWidget::RegenarateTable(const QVector<QVector<int>>& matrix, QWidget* parent, double k) {
+void TableWidget::RegenerateTable(const QVector<QVector<int>>& matrix, QWidget* parent, double k) {
     int n = matrix.size();
     setRowCount(n);
     setColumnCount(n);
 
-    int totalWidth = (*parent).width() / 2;
-    int columnWidth = totalWidth / n - ((*parent).width() * k / n);
+    int columnWidth = (parent->width() / 2) / n - (parent->width() * k / n);
 
     for (int j = 0; j < n; ++j) {
         setColumnWidth(j, columnWidth);
@@ -386,11 +518,12 @@ void TableWidget::RegenarateTable(const QVector<QVector<int>>& matrix, QWidget* 
         }
     }
 
-    setHorizontalHeaderLabels(getHeaderLabels(n));
-    setVerticalHeaderLabels(getHeaderLabels(n));
+    QStringList headers = GenerateHeaderLabels(n);
+    setHorizontalHeaderLabels(headers);
+    setVerticalHeaderLabels(headers);
 }
 
-QStringList TableWidget::getHeaderLabels(int size) {
+QStringList TableWidget::GenerateHeaderLabels(int size) {
     QStringList headers;
     for (int i = 0; i < size; ++i) {
         headers << QString::number(i);
